@@ -1,0 +1,519 @@
+// ===================================================
+// CLIENT-SIDE SCRIPT - Socket.io Multiplayer Client
+// ===================================================
+
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
+
+const WORLD_WIDTH = 32000;
+const WORLD_HEIGHT = 32000;
+
+// Ship sizes
+const shipSizes = {
+    1: 120, 2: 150, 3: 180, 4: 210, 5: 240, 6: 270, 7: 300
+};
+
+// Game state (received from server)
+let localPlayer = null;
+let players = [];
+let bots = [];
+let islands = [];
+let collectibles = [];
+let cannonballs = [];
+let camera = { x: 0, y: 0, zoom: 1 };
+
+// Socket connection
+let socket = null;
+let playerId = null;
+let connected = false;
+
+// Input state
+const keys = {
+    w: false, a: false, s: false, d: false,
+    arrowup: false, arrowdown: false, arrowleft: false, arrowright: false
+};
+
+const mouse = { x: 0, y: 0, worldX: 0, worldY: 0 };
+let firing = false;
+
+// Audio
+const bgMusic = new Audio('assets/pirate.mp3');
+bgMusic.loop = true;
+bgMusic.volume = 0.5;
+
+const fireSound = new Audio('assets/fire.mp3');
+fireSound.volume = 0.4;
+
+// Event Listeners
+window.addEventListener('keydown', (e) => {
+    if (e.key && e.key.toLowerCase() in keys) {
+        keys[e.key.toLowerCase()] = true;
+    }
+});
+
+window.addEventListener('keyup', (e) => {
+    if (e.key && e.key.toLowerCase() in keys) {
+        keys[e.key.toLowerCase()] = false;
+    }
+});
+
+canvas.addEventListener('mousemove', (e) => {
+    const rect = canvas.getBoundingClientRect();
+    mouse.x = e.clientX - rect.left;
+    mouse.y = e.clientY - rect.top;
+
+    if (camera) {
+        mouse.worldX = (mouse.x / camera.zoom) + camera.x;
+        mouse.worldY = (mouse.y / camera.zoom) + camera.y;
+    }
+});
+
+canvas.addEventListener('click', () => {
+    firing = true;
+});
+
+window.addEventListener('resize', () => {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+});
+
+document.getElementById('weighAnchorBtn').addEventListener('click', () => {
+    const playerName = document.getElementById('pirateName').value.trim() || 'Player';
+    startGame(playerName);
+});
+
+document.getElementById('respawnBtn').addEventListener('click', () => {
+    document.getElementById('respawnScreen').style.display = 'none';
+    const playerName = localPlayer ? localPlayer.name : 'Player';
+    socket.emit('joinGame', playerName);
+});
+
+// Auto-upgrade - no manual button needed
+
+// Mobile detection
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || window.innerWidth < 768;
+
+// Joystick state
+let joystickActive = false;
+let joystickAngle = 0;
+let joystickPower = 0;
+
+if (isMobile) {
+    document.getElementById('joystick-container').style.display = 'block';
+
+    const joystickBase = document.getElementById('joystick-base');
+    const joystickStick = document.getElementById('joystick-stick');
+
+    const handleJoystickMove = (clientX, clientY) => {
+        const rect = joystickBase.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        const deltaX = clientX - centerX;
+        const deltaY = clientY - centerY;
+        const distance = Math.min(Math.sqrt(deltaX * deltaX + deltaY * deltaY), 45);
+
+        joystickAngle = Math.atan2(deltaY, deltaX);
+        joystickPower = distance / 45;
+
+        const stickX = Math.cos(joystickAngle) * distance;
+        const stickY = Math.sin(joystickAngle) * distance;
+
+        joystickStick.style.transform = `translate(calc(-50% + ${stickX}px), calc(-50% + ${stickY}px))`;
+    };
+
+    const resetJoystick = () => {
+        joystickActive = false;
+        joystickPower = 0;
+        joystickStick.style.transform = 'translate(-50%, -50%)';
+    };
+
+    joystickBase.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        joystickActive = true;
+        const touch = e.touches[0];
+        handleJoystickMove(touch.clientX, touch.clientY);
+    });
+
+    joystickBase.addEventListener('touchmove', (e) => {
+        e.preventDefault();
+        if (joystickActive) {
+            const touch = e.touches[0];
+            handleJoystickMove(touch.clientX, touch.clientY);
+        }
+    });
+
+    joystickBase.addEventListener('touchend', (e) => {
+        e.preventDefault();
+        resetJoystick();
+    });
+
+    // Touch firing
+    canvas.addEventListener('touchstart', (e) => {
+        if (e.target === canvas) {
+            e.preventDefault();
+            firing = true;
+        }
+    });
+}
+
+// Connect to server and start game
+function startGame(playerName) {
+    console.log('[CLIENT] Connecting to server...');
+
+    // Play background music
+    bgMusic.play().catch(e => console.log('Audio play failed:', e));
+
+    // Hide menu, show game
+    document.getElementById('main-menu').style.display = 'none';
+    document.getElementById('gameCanvas').style.display = 'block';
+    document.getElementById('hud').style.display = 'block';
+    document.getElementById('leaderboard').style.display = 'block';
+    document.getElementById('upgrade-ui').style.display = 'block';
+
+    // Connect to server
+    socket = io();
+
+    socket.on('connect', () => {
+        console.log('[CLIENT] Connected to server!');
+        connected = true;
+        socket.emit('joinGame', playerName);
+    });
+
+    socket.on('gameInit', (data) => {
+        console.log('[CLIENT] Game initialized!', data);
+        playerId = data.playerId;
+        islands = data.islands;
+        localPlayer = data.player;
+
+        // Start render loop
+        requestAnimationFrame(renderLoop);
+    });
+
+    socket.on('gameState', (state) => {
+        // Update game state from server
+        players = state.players;
+        bots = state.bots;
+        cannonballs = state.cannonballs;
+        collectibles = state.collectibles;
+
+        // Find local player
+        const serverPlayer = players.find(p => p.id === playerId);
+        if (serverPlayer && localPlayer) {
+            // Update local player with server data
+            localPlayer.x = serverPlayer.x;
+            localPlayer.y = serverPlayer.y;
+            localPlayer.angle = serverPlayer.angle;
+            localPlayer.shipLevel = serverPlayer.shipLevel;
+            localPlayer.health = serverPlayer.health;
+            localPlayer.maxHealth = serverPlayer.maxHealth;
+            localPlayer.gold = serverPlayer.gold;
+            localPlayer.crew = serverPlayer.crew;
+            localPlayer.maxCrew = serverPlayer.maxCrew;
+            localPlayer.wood = serverPlayer.wood || 0;
+        }
+    });
+
+    socket.on('playerDeath', () => {
+        console.log('[CLIENT] You died!');
+        document.getElementById('respawnScreen').style.display = 'block';
+    });
+
+    socket.on('serverFull', () => {
+        alert('Server is full! Maximum 200 players.');
+        document.getElementById('main-menu').style.display = 'block';
+        document.getElementById('gameCanvas').style.display = 'none';
+    });
+
+    socket.on('disconnect', () => {
+        console.log('[CLIENT] Disconnected from server');
+        connected = false;
+    });
+
+    // Send input to server periodically
+    setInterval(() => {
+        if (socket && connected && localPlayer) {
+            // Mobile joystick input
+            if (isMobile && joystickActive) {
+                keys.w = joystickPower > 0.2;
+                keys.a = false;
+                keys.d = false;
+                // Set player angle based on joystick
+                const targetAngle = joystickAngle;
+                if (localPlayer.angle) {
+                    // Smooth rotation
+                    let angleDiff = targetAngle - localPlayer.angle;
+                    if (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+                    if (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+
+                    if (Math.abs(angleDiff) > 0.05) {
+                        keys.a = angleDiff < 0;
+                        keys.d = angleDiff > 0;
+                    }
+                }
+            }
+
+            const mouseAngle = Math.atan2(mouse.worldY - localPlayer.y, mouse.worldX - localPlayer.x);
+
+            socket.emit('playerInput', {
+                keys: keys,
+                mouseAngle: mouseAngle,
+                firing: firing
+            });
+
+            firing = false; // Reset firing
+        }
+    }, 50); // Send input 20 times per second
+}
+
+// Render loop (60 FPS)
+function renderLoop() {
+    // Clear canvas
+    ctx.fillStyle = '#87CEEB';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    if (!localPlayer) {
+        requestAnimationFrame(renderLoop);
+        return;
+    }
+
+    // Update camera
+    updateCamera();
+
+    // Apply camera transformations
+    ctx.save();
+    ctx.scale(camera.zoom, camera.zoom);
+    ctx.translate(-camera.x, -camera.y);
+
+    // Draw islands
+    islands.forEach(island => drawIsland(island));
+
+    // Draw collectibles
+    collectibles.forEach(c => drawCollectible(c));
+
+    // Draw local player
+    if (localPlayer) drawShip(localPlayer, true);
+
+    // Draw other players and bots
+    players.forEach(p => {
+        if (p.id !== playerId) drawShip(p, false);
+    });
+    bots.forEach(b => drawShip(b, false));
+
+    // Draw cannonballs
+    cannonballs.forEach(cb => drawCannonball(cb));
+
+    ctx.restore();
+
+    // Update UI
+    updateUI();
+
+    requestAnimationFrame(renderLoop);
+}
+
+function updateCamera() {
+    if (!localPlayer) return;
+
+    // Smooth zoom based on ship size
+    const targetZoom = 1 - (shipSizes[localPlayer.shipLevel] - 120) / 400;
+    camera.zoom += (Math.max(0.4, targetZoom) - camera.zoom) * 0.1;
+
+    // Center on player
+    camera.x = localPlayer.x - (canvas.width / 2) / camera.zoom;
+    camera.y = localPlayer.y - (canvas.height / 2) / camera.zoom;
+}
+
+// Drawing functions
+function drawIsland(island) {
+    const img = new Image();
+    img.src = island.imageType === 0 ? 'assets/Island.png' : 'assets/island1.png';
+    ctx.drawImage(img, island.x - island.size, island.y - island.size, island.size * 2, island.size * 2);
+}
+
+function drawCollectible(c) {
+    if (c.type === 'gold') {
+        ctx.save();
+        ctx.fillStyle = '#FFD700';
+        ctx.shadowColor = '#FFD700';
+        ctx.shadowBlur = 20;
+        ctx.beginPath();
+        ctx.arc(c.x, c.y, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    } else if (c.type === 'wood') {
+        const img = new Image();
+        img.src = 'assets/Wood.png';
+        ctx.drawImage(img, c.x - 22.5, c.y - 22.5, 45, 45);
+    } else if (c.type === 'crew') {
+        const img = new Image();
+        img.src = 'assets/crew_face.png';
+        ctx.drawImage(img, c.x - 50, c.y - 50, 100, 100);
+    }
+}
+
+function drawShip(ship, isLocal) {
+    const size = shipSizes[ship.shipLevel] || 120;
+    const aspectRatio = 1;
+    const width = ship.shipLevel === 1 ? size : size * aspectRatio;
+    const height = size;
+
+    ctx.save();
+    ctx.translate(ship.x, ship.y);
+    ctx.rotate(ship.angle);
+
+    // Draw ship image
+    const img = new Image();
+    img.src = `assets/ship${ship.shipLevel}.png`;
+    ctx.drawImage(img, -width / 2, -height / 2, width, height);
+
+    // Draw ship glow for high levels
+    if (ship.shipLevel >= 5) {
+        ctx.save();
+        ctx.shadowBlur = ship.shipLevel >= 7 ? 60 : (ship.shipLevel === 6 ? 40 : 20);
+        ctx.shadowColor = ship.shipLevel >= 7 ? '#FFD700' : (ship.shipLevel === 6 ? '#FF0000' : '#8B0000');
+        ctx.drawImage(img, -width / 2, -height / 2, width, height);
+        ctx.restore();
+    }
+
+    ctx.restore();
+
+    // Draw name and health bar
+    ctx.save();
+    ctx.translate(ship.x, ship.y);
+
+    const topOfShip = -size / 2;
+
+    // Name
+    ctx.fillStyle = isLocal ? '#FFD700' : 'white';
+    ctx.font = isLocal ? 'bold 20px Arial' : '20px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText(ship.name, 0, topOfShip - 25);
+
+    // Health bar
+    const healthBarWidth = 60;
+    const healthBarHeight = 8;
+    const healthPercentage = ship.health / ship.maxHealth;
+    ctx.fillStyle = '#333';
+    ctx.fillRect(-healthBarWidth / 2, topOfShip - 15, healthBarWidth, healthBarHeight);
+    ctx.fillStyle = healthPercentage > 0.5 ? 'green' : (healthPercentage > 0.2 ? 'orange' : 'red');
+    ctx.fillRect(-healthBarWidth / 2, topOfShip - 15, healthBarWidth * healthPercentage, healthBarHeight);
+
+    ctx.restore();
+}
+
+function drawCannonball(cb) {
+    // Draw cannonball
+    ctx.fillStyle = '#111';
+    ctx.beginPath();
+    ctx.arc(cb.x, cb.y, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Highlight
+    ctx.fillStyle = '#444';
+    ctx.beginPath();
+    ctx.arc(cb.x - 2, cb.y - 2, 3, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function updateUI() {
+    if (!localPlayer) return;
+
+    document.getElementById('gold-stat').textContent = localPlayer.gold || 0;
+    document.getElementById('wood-stat').textContent = localPlayer.wood || 0;
+    document.getElementById('crew-stat').textContent = `${localPlayer.crew}/${localPlayer.maxCrew}`;
+    document.getElementById('ship-level').textContent = localPlayer.shipLevel;
+
+    // Auto-upgrade display (top center)
+    const autoUpgradeDisplay = document.getElementById('auto-upgrade-display');
+    if (localPlayer.shipLevel >= 7) {
+        autoUpgradeDisplay.style.display = 'none';
+    } else {
+        autoUpgradeDisplay.style.display = 'block';
+
+        const upgradeCost = 10 + localPlayer.shipLevel * 5;
+        const currentWood = localPlayer.wood || 0;
+        const woodProgress = Math.min(100, (currentWood / upgradeCost) * 100);
+
+        document.getElementById('current-level').textContent = localPlayer.shipLevel;
+        document.getElementById('next-level').textContent = localPlayer.shipLevel + 1;
+        document.getElementById('upgrade-progress').style.width = `${woodProgress}%`;
+        document.getElementById('upgrade-progress-text').textContent = `${currentWood} / ${upgradeCost} Wood`;
+
+        if (currentWood >= upgradeCost) {
+            document.getElementById('upgrade-progress-text').style.color = "#00ff00";
+            document.getElementById('upgrade-progress-text').textContent = "UPGRADING...";
+        } else {
+            document.getElementById('upgrade-progress-text').style.color = "#FFD700";
+        }
+    }
+
+    // Hide upgrade UI if max level
+    if (localPlayer.shipLevel >= 7) {
+        document.getElementById('upgrade-ui').style.display = 'none';
+    } else {
+        document.getElementById('upgrade-ui').style.display = 'block';
+
+        const upgradeCost = 10 + localPlayer.shipLevel * 5;
+        document.getElementById('upgrade-cost').textContent = upgradeCost + ' Wood';
+
+        const woodNeeded = Math.max(0, upgradeCost - (localPlayer.wood || 0));
+        const woodProgress = Math.min(100, ((localPlayer.wood || 0) / upgradeCost) * 100);
+
+        document.getElementById('upgrade-progress').style.width = `${woodProgress}%`;
+
+        if (woodNeeded <= 0) {
+            document.getElementById('upgrade-progress-text').textContent = "READY TO UPGRADE!";
+            document.getElementById('upgrade-progress-text').style.color = "#00ff00";
+        } else {
+            document.getElementById('upgrade-progress-text').textContent = `${woodNeeded} more wood needed`;
+            document.getElementById('upgrade-progress-text').style.color = "white";
+        }
+    }
+
+    // Update leaderboard
+    const titles = [
+        "Pirate King", "Grand Admiral", "Fleet Commander", "Captain", "Commander",
+        "Lieutenant", "Ensign", "Boatswain", "Sailor", "Powder Monkey"
+    ];
+
+    const allShips = [...players, ...bots].sort((a, b) => (b.gold || 0) - (a.gold || 0));
+    const leaderboardList = document.getElementById('leaderboard-list');
+
+    if (leaderboardList) {
+        leaderboardList.innerHTML = '';
+
+        const playerRank = allShips.findIndex(ship => ship.id === playerId) + 1;
+        const top10 = allShips.slice(0, 10);
+
+        top10.forEach((ship, index) => {
+            const li = document.createElement('li');
+            const rankTitle = titles[index] || "Scallywag";
+            li.innerHTML = `<span>${index + 1}. [${rankTitle}] ${ship.name}</span><span>${ship.gold || 0}</span>`;
+            if (ship.id === playerId) li.style.fontWeight = 'bold';
+            leaderboardList.appendChild(li);
+        });
+
+        const footer = document.getElementById('leaderboard-footer');
+        if (footer) {
+            const myTitle = titles[playerRank - 1] || "Scallywag";
+            footer.textContent = `Your Rank: ${playerRank} [${myTitle}]`;
+        }
+
+        if (playerRank > 10) {
+            leaderboardList.appendChild(document.createElement('li')).textContent = "...";
+            const playerLi = document.createElement('li');
+            playerLi.innerHTML = `<span>${playerRank}. ${localPlayer.name}</span><span>${localPlayer.gold || 0}</span>`;
+            playerLi.style.fontWeight = 'bold';
+            leaderboardList.appendChild(playerLi);
+        }
+    }
+}
+
+// Disable shop buttons (not implemented in multiplayer version yet)
+document.getElementById('open-shop-btn').style.display = 'none';
+document.getElementById('exploreUI').style.display = 'none';
+
+console.log('[CLIENT] Blacksail.io Client Loaded - Ready to connect!');

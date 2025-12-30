@@ -1,0 +1,144 @@
+per
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blacksail.io - Multiplayer Pirate Game</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <div id="gameContainer">
+        <!-- Main Menu -->
+        <div id="main-menu" class="parchment-menu">
+            <h1>BLACKSAIL.IO</h1>
+            <p>Enter your pirate name to begin your journey:</p>
+            <input type="text" id="pirateName" placeholder="Pirate Name" maxlength="20">
+            <button id="weighAnchorBtn">Weigh Anchor</button>
+        </div>
+
+        <!-- Game Canvas -->
+        <canvas id="gameCanvas" style="display: none;"></canvas>
+
+        <!-- Periodic Ad Container -->
+        <div id="periodic-ad-container"
+            style="position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 9999; display: none;">
+        </div>
+
+        <!-- Ad Container -->
+        <div id="ad-container" style="position: absolute; bottom: 0; width: 100%; text-align: center; z-index: 101;">
+            <script>
+                atOptions = {
+                    'key': 'c12c701054760cf0e84984fd83091f25',
+                    'format': 'iframe',
+                    'height': 50,
+                    'width': 320,
+                    'params': {}
+                }; 
+            </script>
+            <script src="https://www.highperformanceformat.com/c12c701054760cf0e84984fd83091f25/invoke.js"></script>
+        </div>
+
+        <!-- HUD -->
+        <div id="hud"
+            style="display: none; position: absolute; top: 20px; left: 20px; z-index: 100; color: white; background-color: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px;">
+            <p>Gold: <span id="gold-stat">0</span></p>
+            <p>Wood: <span id="wood-stat">0</span></p>
+            <p>Crew: <span id="crew-stat">10 / 20</span></p>
+            <p>Ship Level: <span id="ship-level">1</span></p>
+        </div>
+
+        <!-- Auto-Upgrade Display (Top Center) -->
+        <div id="auto-upgrade-display"
+            style="display: none; position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 100; color: white; background-color: rgba(0,0,0,0.7); padding: 15px 25px; border-radius: 10px; text-align: center; border: 2px solid #FFD700;">
+            <p style="margin: 0; font-size: 18px; font-weight: bold;">⚙️ Auto-Upgrade Progress</p>
+            <p style="margin: 5px 0 0 0; font-size: 14px;">Ship Level <span id="current-level">1</span> → <span
+                    id="next-level">2</span></p>
+            <div
+                style="width: 200px; height: 15px; background-color: #333; border-radius: 8px; margin-top: 8px; overflow: hidden;">
+                <div id="upgrade-progress"
+                    style="width: 0%; height: 100%; background: linear-gradient(90deg, #4caf50, #8bc34a); transition: width 0.3s;">
+                </div>
+            </div>
+            <p id="upgrade-progress-text" style="margin: 5px 0 0 0; font-size: 12px; color: #FFD700;">0 / 15 Wood</p>
+        </div>
+
+        <!-- Mobile Joystick -->
+        <div id="joystick-container"
+            style="display: none; position: absolute; bottom: 80px; left: 80px; width: 150px; height: 150px; z-index: 100;">
+            <div id="joystick-base"
+                style="width: 100%; height: 100%; background: rgba(255,255,255,0.2); border: 3px solid rgba(255,255,255,0.5); border-radius: 50%; position: relative;">
+                <div id="joystick-stick"
+                    style="width: 60px; height: 60px; background: rgba(255,255,255,0.8); border: 2px solid #FFD700; border-radius: 50%; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); transition: none;">
+                </div>
+            </div>
+        </div>
+
+        <!-- Shop -->
+        <div id="shop" class="parchment-menu" style="display: none;">
+            <h2>Shop</h2>
+            <button id="buy-shield-btn" class="shop-item">Buy Shield (50 Gold)</button>
+            <button id="buy-spyglass-btn" class="shop-item">Buy Spyglass (100 Gold)</button>
+            <button id="close-shop-btn">Close</button>
+        </div>
+
+        <button id="open-shop-btn" style="position: absolute; bottom: 20px; right: 20px; z-index: 100;">Shop</button>
+
+        <!-- Buffs Container -->
+        <div id="buffs-container"></div>
+
+        <!-- Buffs Container -->
+        <div id="buffs-container"></div>
+
+        <!-- Leaderboard -->
+        <div id="leaderboard"
+            style="position: absolute; top: 20px; right: 20px; z-index: 100; color: white; background-color: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; display: none;">
+            <h2>Leaderboard</h2>
+            <ol id="leaderboard-list"></ol>
+            <div id="leaderboard-footer"
+                style="margin-top: 10px; border-top: 1px solid #aaa; padding-top: 5px; font-weight: bold; text-align: center;">
+            </div>
+        </div>
+
+        <!-- Respawn Screen -->
+        <div id="respawnScreen" class="parchment-menu" style="display: none;">
+            <h2>SHIP SUNK!</h2>
+            <p>Your ship has been destroyed in battle.</p>
+            <p>But a true pirate never surrenders!</p>
+            <button id="respawnBtn">REVENGE!</button>
+            <script async="async" data-cfasync="false"
+                src="https://pl28351233.effectivegatecpm.com/90dbf5cdf4e4a575295ce5762a3f388c/invoke.js"></script>
+            <div id="container-90dbf5cdf4e4a575295ce5762a3f388c"></div>
+        </div>
+
+        <!-- Explore Button UI -->
+        <div id="exploreUI"
+            style="display: none; position: absolute; bottom: 120px; left: 50%; transform: translateX(-50%); z-index: 100; flex-direction: column; gap: 10px;">
+            <button id="exploreBtn" class="parchment-button"
+                style="padding: 15px 30px; font-size: 24px; cursor: pointer; background: #d4a76a; border: 4px solid #5d4037; font-family: 'PirateFont', serif; color: #3e2723; box-shadow: 0 4px 8px rgba(0,0,0,0.5);">EXPLORE
+                ISLAND</button>
+            <button id="recallBtn" class="parchment-button"
+                style="display: none; padding: 10px 20px; font-size: 18px; cursor: pointer; background: #a0522d; border: 3px solid #3e2723; font-family: 'PirateFont', serif; color: #f4eabc; box-shadow: 0 4px 8px rgba(0,0,0,0.5);">RECALL
+                ALL CREW</button>
+        </div>
+    </div>
+
+    <script>
+        // Game start console message
+        console.log("===========================================");
+        console.log("[GAME STARTUP] Blacksail.io Game Loading");
+        console.log("===========================================");
+        console.log("Game initialized at:", new Date().toLocaleString());
+
+        // Wait for the script to load and then add more console messages
+        window.addEventListener('load', function () {
+            console.log("Page loaded, waiting for game initialization...");
+        });
+    </script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="script.js" defer></script>
+</body>
+
+</html>
