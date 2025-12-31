@@ -402,7 +402,7 @@ function updateCamera() {
     if (!localPlayer) return;
 
     // Smooth zoom based on ship size
-    const targetZoom = 1 - (shipSizes[localPlayer.shipLevel] - 120) / 400;
+    const targetZoom = 0.8 - (shipSizes[localPlayer.shipLevel] - 120) / 400;
     camera.zoom += (Math.max(0.4, targetZoom) - camera.zoom) * 0.1;
 
     // Center on player
