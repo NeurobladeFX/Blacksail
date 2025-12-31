@@ -453,15 +453,6 @@ function drawShip(ship, isLocal) {
         ctx.drawImage(img, -width / 2, -height / 2, width, height);
     }
 
-    // Draw ship glow for high levels
-    if (ship.shipLevel >= 5 && img) {
-        ctx.save();
-        ctx.shadowBlur = ship.shipLevel >= 7 ? 60 : (ship.shipLevel === 6 ? 40 : 20);
-        ctx.shadowColor = ship.shipLevel >= 7 ? '#FFD700' : (ship.shipLevel === 6 ? '#FF0000' : '#8B0000');
-        ctx.drawImage(img, -width / 2, -height / 2, width, height);
-        ctx.restore();
-    }
-
     ctx.restore();
 
     // Draw name and health bar
