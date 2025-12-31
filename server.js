@@ -107,6 +107,8 @@ function initializeWorld() {
 
 // Create a bot
 function createBot() {
+    if (gameState.bots.size >= 200) return; // Prevent bot overflow
+
     const botNames = ['Arjun', 'Vikram', 'Rohan', 'Priya', 'Ananya', 'Jack', 'William', 'James', 'Emily', 'Sophia',
         'Blackbeard', 'Calico', 'Morgan', 'Drake', 'Kidd', 'Teach', 'Sparrow', 'Turner', 'Swann', 'Barbossa'];
 
@@ -199,18 +201,18 @@ function updateBotAI(bot) {
             bot.aiMode = 'hunt';
         }
     } else if (bot.aiMode === 'hunt') {
-        // Hunt players or weaker bots
+        // Hunt players or other bots
         const targets = nearbyShips.filter(s => {
-            if (s.isBot && s.shipLevel >= bot.shipLevel) return false;
-            return true;
+            // No friendly fire for now, but bots can attack anyone
+            return s.id !== bot.id;
         });
 
         if (targets.length > 0) {
-            // Prioritize real players, then lower level ships
+            // Prioritize real players, then ships of different levels
             const sorted = targets.sort((a, b) => {
-                if (!a.isBot && b.isBot) return -1;
-                if (a.isBot && !b.isBot) return 1;
-                return a.shipLevel - b.shipLevel;
+                if (!a.isBot && b.isBot) return -1; // Player vs Bot
+                if (a.isBot && !b.isBot) return 1; // Bot vs Player
+                return Math.abs(bot.shipLevel - a.shipLevel) - Math.abs(bot.shipLevel - b.shipLevel);
             });
 
             const target = sorted[0];
@@ -497,7 +499,8 @@ function broadcastGameState() {
             maxHealth: p.maxHealth,
             gold: p.gold,
             crew: p.crew,
-            maxCrew: p.maxCrew
+            maxCrew: p.maxCrew,
+            wood: p.wood || 0
         })),
         bots: Array.from(gameState.bots.values()).map(b => ({
             id: b.id,
@@ -508,7 +511,8 @@ function broadcastGameState() {
             shipLevel: b.shipLevel,
             health: b.health,
             maxHealth: b.maxHealth,
-            gold: b.gold
+            gold: b.gold,
+            wood: b.wood || 0
         })),
         cannonballs: gameState.cannonballs.map(c => ({
             id: c.id,
