@@ -27,6 +27,9 @@ let camera = { x: 0, y: 0, zoom: 1 };
 let lastTime = 0;
 let fps = 0;
 
+// Image cache
+const images = {};
+
 // Socket connection
 let socket = null;
 let playerId = null;
@@ -162,8 +165,51 @@ if (isMobile) {
     });
 }
 
+// Preload images
+function preloadImages(imagePaths) {
+    return new Promise((resolve, reject) => {
+        let loadedCount = 0;
+        const totalImages = imagePaths.length;
+
+        if (totalImages === 0) {
+            resolve();
+            return;
+        }
+
+        imagePaths.forEach(path => {
+            const img = new Image();
+            img.src = path;
+            img.onload = () => {
+                images[path] = img;
+                loadedCount++;
+                if (loadedCount === totalImages) {
+                    resolve();
+                }
+            };
+            img.onerror = () => {
+                console.error(`[CLIENT] Failed to load image: ${path}`);
+                loadedCount++; // Count it as 'loaded' to not block the game
+                if (loadedCount === totalImages) {
+                    resolve(); // or reject, depending on desired behavior
+                }
+            };
+        });
+    });
+}
+
 // Connect to server and start game
-function startGame(playerName) {
+async function startGame(playerName) {
+    console.log('[CLIENT] Preloading assets...');
+    const imagePaths = [
+        'assets/Island.png',
+        'assets/island1.png',
+        'assets/Wood.png',
+        'assets/crew_face.png',
+        ...Array.from({ length: 7 }, (_, i) => `assets/ship${i + 1}.png`)
+    ];
+    await preloadImages(imagePaths);
+    console.log('[CLIENT] Assets loaded.');
+
     console.log('[CLIENT] Connecting to server...');
 
     // Play background music
@@ -366,9 +412,10 @@ function updateCamera() {
 
 // Drawing functions
 function drawIsland(island) {
-    const img = new Image();
-    img.src = island.imageType === 0 ? 'assets/Island.png' : 'assets/island1.png';
-    ctx.drawImage(img, island.x - island.size, island.y - island.size, island.size * 2, island.size * 2);
+    const img = images[island.imageType === 0 ? 'assets/Island.png' : 'assets/island1.png'];
+    if (img) {
+        ctx.drawImage(img, island.x - island.size, island.y - island.size, island.size * 2, island.size * 2);
+    }
 }
 
 function drawCollectible(c) {
@@ -382,13 +429,11 @@ function drawCollectible(c) {
         ctx.fill();
         ctx.restore();
     } else if (c.type === 'wood') {
-        const img = new Image();
-        img.src = 'assets/Wood.png';
-        ctx.drawImage(img, c.x - 22.5, c.y - 22.5, 45, 45);
+        const img = images['assets/Wood.png'];
+        if (img) ctx.drawImage(img, c.x - 22.5, c.y - 22.5, 45, 45);
     } else if (c.type === 'crew') {
-        const img = new Image();
-        img.src = 'assets/crew_face.png';
-        ctx.drawImage(img, c.x - 50, c.y - 50, 100, 100);
+        const img = images['assets/crew_face.png'];
+        if (img) ctx.drawImage(img, c.x - 50, c.y - 50, 100, 100);
     }
 }
 
@@ -403,12 +448,13 @@ function drawShip(ship, isLocal) {
     ctx.rotate(ship.angle);
 
     // Draw ship image
-    const img = new Image();
-    img.src = `assets/ship${ship.shipLevel}.png`;
-    ctx.drawImage(img, -width / 2, -height / 2, width, height);
+    const img = images[`assets/ship${ship.shipLevel}.png`];
+    if (img) {
+        ctx.drawImage(img, -width / 2, -height / 2, width, height);
+    }
 
     // Draw ship glow for high levels
-    if (ship.shipLevel >= 5) {
+    if (ship.shipLevel >= 5 && img) {
         ctx.save();
         ctx.shadowBlur = ship.shipLevel >= 7 ? 60 : (ship.shipLevel === 6 ? 40 : 20);
         ctx.shadowColor = ship.shipLevel >= 7 ? '#FFD700' : (ship.shipLevel === 6 ? '#FF0000' : '#8B0000');
