@@ -13,7 +13,7 @@ const WORLD_HEIGHT = 32000;
 const MAX_ENTITIES = 200;
 const TICK_RATE = 60; // Server ticks per second
 const NETWORK_UPDATE_RATE = 20; // Send updates to clients 20 times per second
-const INITIAL_BOTS = 100;
+const INITIAL_BOTS = 50;
 const INITIAL_ISLANDS = 200;
 const INITIAL_COLLECTIBLES = 5000;
 
@@ -110,7 +110,7 @@ function initializeWorld() {
 
 // Create a bot
 function createBot() {
-    if (gameState.bots.size >= 200) return; // Prevent bot overflow
+    if (gameState.bots.size + gameState.players.size >= MAX_ENTITIES) return; // Prevent overflow
 
     const botNames = ['Arjun', 'Vikram', 'Rohan', 'Priya', 'Ananya', 'Jack', 'William', 'James', 'Emily', 'Sophia',
         'Blackbeard', 'Calico', 'Morgan', 'Drake', 'Kidd', 'Teach', 'Sparrow', 'Turner', 'Swann', 'Barbossa'];
@@ -544,12 +544,10 @@ io.on('connection', (socket) => {
             socket.emit('serverFull');
             return;
         }
-
         // Remove a bot if present
         if (gameState.bots.size > 0) {
             const botToRemove = gameState.bots.values().next().value;
             gameState.bots.delete(botToRemove.id);
-            console.log(`[BOT] Removed bot ${botToRemove.id} for player ${playerName}`);
         }
 
         // Create player
