@@ -402,8 +402,8 @@ function updateCamera() {
     if (!localPlayer) return;
 
     // Smooth zoom based on ship size
-    const targetZoom = 0.8 - (shipSizes[localPlayer.shipLevel] - 120) / 400;
-    camera.zoom += (Math.max(0.4, targetZoom) - camera.zoom) * 0.1;
+    const targetZoom = 0.6 - (shipSizes[localPlayer.shipLevel] - 120) / 500;
+    camera.zoom += (Math.max(0.3, targetZoom) - camera.zoom) * 0.1;
 
     // Center on player
     camera.x = localPlayer.x - (canvas.width / 2) / camera.zoom;
@@ -493,39 +493,83 @@ function drawCannonball(cb) {
     ctx.fill();
 }
 
+let lastUIState = {};
+
 function updateUI() {
     if (!localPlayer) return;
 
-    document.getElementById('gold-stat').textContent = localPlayer.gold || 0;
-    document.getElementById('wood-stat').textContent = localPlayer.wood || 0;
-    document.getElementById('crew-stat').textContent = `${localPlayer.crew}/${localPlayer.maxCrew}`;
-    document.getElementById('ship-level').textContent = localPlayer.shipLevel;
+    const newState = {
+        gold: localPlayer.gold || 0,
+        wood: localPlayer.wood || 0,
+        crew: `${localPlayer.crew}/${localPlayer.maxCrew}`,
+        shipLevel: localPlayer.shipLevel,
+    };
+
+    if (newState.gold !== lastUIState.gold) {
+        document.getElementById('gold-stat').textContent = newState.gold;
+    }
+    if (newState.wood !== lastUIState.wood) {
+        document.getElementById('wood-stat').textContent = newState.wood;
+    }
+    if (newState.crew !== lastUIState.crew) {
+        document.getElementById('crew-stat').textContent = newState.crew;
+    }
+    if (newState.shipLevel !== lastUIState.shipLevel) {
+        document.getElementById('ship-level').textContent = newState.shipLevel;
+    }
 
     // Auto-upgrade display (top center)
     const autoUpgradeDisplay = document.getElementById('auto-upgrade-display');
     if (localPlayer.shipLevel >= 7) {
-        autoUpgradeDisplay.style.display = 'none';
+        if (autoUpgradeDisplay.style.display !== 'none') {
+            autoUpgradeDisplay.style.display = 'none';
+        }
     } else {
-        autoUpgradeDisplay.style.display = 'block';
+        if (autoUpgradeDisplay.style.display !== 'block') {
+            autoUpgradeDisplay.style.display = 'block';
+        }
 
         const upgradeCost = 10 + localPlayer.shipLevel * 5;
         const currentWood = localPlayer.wood || 0;
         const woodProgress = Math.min(100, (currentWood / upgradeCost) * 100);
 
-        document.getElementById('current-level').textContent = localPlayer.shipLevel;
-        document.getElementById('next-level').textContent = localPlayer.shipLevel + 1;
-        document.getElementById('upgrade-progress').style.width = `${woodProgress}%`;
-        document.getElementById('upgrade-progress-text').textContent = `${currentWood} / ${upgradeCost} Wood`;
+        if (localPlayer.shipLevel !== lastUIState.shipLevel) {
+            document.getElementById('current-level').textContent = localPlayer.shipLevel;
+            document.getElementById('next-level').textContent = localPlayer.shipLevel + 1;
+        }
+
+        const progressWidth = `${woodProgress}%`;
+        if (progressWidth !== lastUIState.progressWidth) {
+            document.getElementById('upgrade-progress').style.width = progressWidth;
+        }
+        
+        const progressText = `${currentWood} / ${upgradeCost} Wood`;
+        if (progressText !== lastUIState.progressText) {
+            document.getElementById('upgrade-progress-text').textContent = progressText;
+        }
 
         if (currentWood >= upgradeCost) {
-            document.getElementById('upgrade-progress-text').style.color = "#00ff00";
-            document.getElementById('upgrade-progress-text').textContent = "UPGRADING...";
+            if (lastUIState.upgradeStatus !== "UPGRADING...") {
+                document.getElementById('upgrade-progress-text').style.color = "#00ff00";
+                document.getElementById('upgrade-progress-text').textContent = "UPGRADING...";
+                lastUIState.upgradeStatus = "UPGRADING...";
+            }
         } else {
-            document.getElementById('upgrade-progress-text').style.color = "#FFD700";
+            if (lastUIState.upgradeStatus !== "default") {
+                document.getElementById('upgrade-progress-text').style.color = "#FFD700";
+                lastUIState.upgradeStatus = "default";
+            }
         }
+        newState.progressWidth = progressWidth;
+        newState.progressText = progressText;
     }
 
-    // Update leaderboard
+    lastUIState = newState;
+}
+
+function updateLeaderboard() {
+    if (!players.length && !bots.length) return;
+
     const titles = [
         "Pirate King", "Grand Admiral", "Fleet Commander", "Captain", "Commander",
         "Lieutenant", "Ensign", "Boatswain", "Sailor", "Powder Monkey"
@@ -563,6 +607,10 @@ function updateUI() {
         }
     }
 }
+
+// Throttled leaderboard update
+setInterval(updateLeaderboard, 1000);
+
 
 // Disable shop buttons (not implemented in multiplayer version yet)
 document.getElementById('open-shop-btn').style.display = 'none';
