@@ -293,23 +293,51 @@ function renderLoop() {
     ctx.scale(camera.zoom, camera.zoom);
     ctx.translate(-camera.x, -camera.y);
 
+    const view = {
+        x: camera.x,
+        y: camera.y,
+        w: canvas.width / camera.zoom,
+        h: canvas.height / camera.zoom
+    };
+
     // Draw islands
-    islands.forEach(island => drawIsland(island));
+    islands.forEach(island => {
+        if (island.x + island.size > view.x && island.x - island.size < view.x + view.w &&
+            island.y + island.size > view.y && island.y - island.size < view.y + view.h) {
+            drawIsland(island);
+        }
+    });
 
     // Draw collectibles
-    collectibles.forEach(c => drawCollectible(c));
+    collectibles.forEach(c => {
+        if (c.x > view.x && c.x < view.x + view.w && c.y > view.y && c.y < view.y + view.h) {
+            drawCollectible(c);
+        }
+    });
 
     // Draw local player
     if (localPlayer) drawShip(localPlayer, true);
 
     // Draw other players and bots
     players.forEach(p => {
-        if (p.id !== playerId) drawShip(p, false);
+        if (p.id !== playerId) {
+            if (p.x > view.x - 100 && p.x < view.x + view.w + 100 && p.y > view.y - 100 && p.y < view.y + view.h + 100) {
+                drawShip(p, false);
+            }
+        }
     });
-    bots.forEach(b => drawShip(b, false));
+    bots.forEach(b => {
+        if (b.x > view.x - 100 && b.x < view.x + view.w + 100 && b.y > view.y - 100 && b.y < view.y + view.h + 100) {
+            drawShip(b, false);
+        }
+    });
 
     // Draw cannonballs
-    cannonballs.forEach(cb => drawCannonball(cb));
+    cannonballs.forEach(cb => {
+        if (cb.x > view.x && cb.x < view.x + view.w && cb.y > view.y && cb.y < view.y + view.h) {
+            drawCannonball(cb);
+        }
+    });
 
     ctx.restore();
 
