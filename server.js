@@ -13,6 +13,9 @@ const WORLD_HEIGHT = 32000;
 const MAX_ENTITIES = 200;
 const TICK_RATE = 60; // Server ticks per second
 const NETWORK_UPDATE_RATE = 20; // Send updates to clients 20 times per second
+const INITIAL_BOTS = 100;
+const INITIAL_ISLANDS = 200;
+const INITIAL_COLLECTIBLES = 5000;
 
 // Ship sizes matching client
 const shipSizes = {
@@ -70,18 +73,18 @@ function initializeWorld() {
     console.log('[INIT] Initializing game world...');
 
     // Create islands
-    for (let i = 0; i < 400; i++) {
+    for (let i = 0; i < INITIAL_ISLANDS; i++) {
         gameState.islands.push({
             id: i,
             x: Math.random() * WORLD_WIDTH,
             y: Math.random() * WORLD_HEIGHT,
             size: 300 + Math.random() * 400,
-            imageType: Math.floor(Math.random() * 2) // 0 or 1 for island images
+            imageType: Math.floor(Math.random() * 2)
         });
     }
 
     // Create collectibles
-    for (let i = 0; i < 10000; i++) {
+    for (let i = 0; i < INITIAL_COLLECTIBLES; i++) {
         const rand = Math.random();
         let type;
         if (rand < 0.4) type = 'gold';
@@ -97,8 +100,8 @@ function initializeWorld() {
         });
     }
 
-    // Create 200 bots
-    for (let i = 0; i < 200; i++) {
+    // Create bots
+    for (let i = 0; i < INITIAL_BOTS; i++) {
         createBot();
     }
 
