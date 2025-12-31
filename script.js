@@ -549,17 +549,33 @@ function drawShip(ship, isLocal) {
 }
 
 function drawCannonball(cb) {
+    // Draw cannonball tail
+    const tailLength = 8;
+    for (let i = tailLength; i > 0; i--) {
+        const t = i / tailLength;
+        const tailX = cb.x - Math.cos(cb.angle) * cb.speed * i * 2;
+        const tailY = cb.y - Math.sin(cb.angle) * cb.speed * i * 2;
+        ctx.save();
+        ctx.globalAlpha = 0.08 + 0.12 * t;
+        ctx.fillStyle = '#222';
+        ctx.beginPath();
+        ctx.arc(tailX, tailY, 7 - t * 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
     // Draw cannonball
+    ctx.save();
+    ctx.globalAlpha = 1;
     ctx.fillStyle = '#111';
     ctx.beginPath();
     ctx.arc(cb.x, cb.y, 8, 0, Math.PI * 2);
     ctx.fill();
-
     // Highlight
     ctx.fillStyle = '#444';
     ctx.beginPath();
     ctx.arc(cb.x - 2, cb.y - 2, 3, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
 }
 
 let lastUIState = {};

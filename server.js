@@ -144,6 +144,8 @@ function createBot() {
 
 // Update ship stats based on level
 function updateShipStats(ship) {
+    // Ensure shipLevel is always valid
+    if (!ship.shipLevel || ship.shipLevel < 1 || ship.shipLevel > 7) ship.shipLevel = 1;
     ship.maxHealth = 100 + (ship.shipLevel - 1) * 20;
     ship.health = Math.min(ship.health, ship.maxHealth);
     ship.maxSpeed = 4 + (ship.shipLevel - 1) * 0.4;
