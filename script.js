@@ -24,6 +24,8 @@ let islands = [];
 let collectibles = [];
 let cannonballs = [];
 let camera = { x: 0, y: 0, zoom: 1 };
+let lastTime = 0;
+let fps = 0;
 
 // Socket connection
 let socket = null;
@@ -270,6 +272,10 @@ function startGame(playerName) {
 
 // Render loop (60 FPS)
 function renderLoop() {
+    const now = performance.now();
+    const delta = now - lastTime;
+    lastTime = now;
+    fps = Math.round(1000 / delta);
     // Clear canvas
     ctx.fillStyle = '#87CEEB';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -309,6 +315,11 @@ function renderLoop() {
 
     // Update UI
     updateUI();
+
+    // Draw FPS
+    ctx.fillStyle = 'white';
+    ctx.font = '20px Arial';
+    ctx.fillText(`FPS: ${fps}`, 10, 30);
 
     requestAnimationFrame(renderLoop);
 }
