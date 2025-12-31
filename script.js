@@ -241,27 +241,72 @@ async function startGame(playerName) {
     });
 
     socket.on('gameState', (state) => {
-        // Update game state from server
-        players = state.players;
-        bots = state.bots;
+        // Update players
+        state.players.forEach(serverPlayer => {
+            let p = players.find(player => player.id === serverPlayer.id);
+            if (p) { // Existing player
+                if (p.id === playerId) {
+                    // Local player: update directly from server for authority
+                    p.x = serverPlayer.x;
+                    p.y = serverPlayer.y;
+                    p.angle = serverPlayer.angle;
+                } else {
+                    // Other players: set target for interpolation
+                    p.targetX = serverPlayer.x;
+                    p.targetY = serverPlayer.y;
+                    p.targetAngle = serverPlayer.angle;
+                }
+                // Common properties
+                p.shipLevel = serverPlayer.shipLevel;
+                p.health = serverPlayer.health;
+                p.maxHealth = serverPlayer.maxHealth;
+                p.gold = serverPlayer.gold;
+                p.crew = serverPlayer.crew;
+                p.maxCrew = serverPlayer.maxCrew;
+                p.wood = serverPlayer.wood || 0;
+                p.name = serverPlayer.name;
+            } else { // New player
+                serverPlayer.x = serverPlayer.x;
+                serverPlayer.y = serverPlayer.y;
+                serverPlayer.targetX = serverPlayer.x;
+                serverPlayer.targetY = serverPlayer.y;
+                serverPlayer.angle = serverPlayer.angle;
+                serverPlayer.targetAngle = serverPlayer.angle;
+                players.push(serverPlayer);
+            }
+        });
+        // Remove old players
+        players = players.filter(p => state.players.some(sp => sp.id === p.id));
+
+        // Update bots (always interpolate)
+        state.bots.forEach(serverBot => {
+            let b = bots.find(bot => bot.id === serverBot.id);
+            if (b) {
+                b.targetX = serverBot.x;
+                b.targetY = serverBot.y;
+                b.targetAngle = serverBot.angle;
+                b.shipLevel = serverBot.shipLevel;
+                b.health = serverBot.health;
+                b.maxHealth = serverBot.maxHealth;
+                b.name = serverBot.name;
+            } else {
+                serverBot.x = serverBot.x;
+                serverBot.y = serverBot.y;
+                serverBot.targetX = serverBot.x;
+                serverBot.targetY = serverBot.y;
+                serverBot.angle = serverBot.angle;
+                serverBot.targetAngle = serverBot.angle;
+                bots.push(serverBot);
+            }
+        });
+        // Remove old bots
+        bots = bots.filter(b => state.bots.some(sb => sb.id === b.id));
+
         cannonballs = state.cannonballs;
         collectibles = state.collectibles;
 
-        // Find local player
-        const serverPlayer = players.find(p => p.id === playerId);
-        if (serverPlayer && localPlayer) {
-            // Update local player with server data
-            localPlayer.x = serverPlayer.x;
-            localPlayer.y = serverPlayer.y;
-            localPlayer.angle = serverPlayer.angle;
-            localPlayer.shipLevel = serverPlayer.shipLevel;
-            localPlayer.health = serverPlayer.health;
-            localPlayer.maxHealth = serverPlayer.maxHealth;
-            localPlayer.gold = serverPlayer.gold;
-            localPlayer.crew = serverPlayer.crew;
-            localPlayer.maxCrew = serverPlayer.maxCrew;
-            localPlayer.wood = serverPlayer.wood || 0;
-        }
+        // Update localPlayer reference
+        localPlayer = players.find(p => p.id === playerId);
     });
 
     socket.on('playerDeath', () => {
@@ -330,6 +375,29 @@ function renderLoop() {
         requestAnimationFrame(renderLoop);
         return;
     }
+
+    // Interpolate other entities
+    const interpolationFactor = 0.2;
+    players.forEach(p => {
+        if (p.id !== playerId && p.targetX !== undefined) {
+            p.x += (p.targetX - p.x) * interpolationFactor;
+            p.y += (p.targetY - p.y) * interpolationFactor;
+            let angleDiff = p.targetAngle - p.angle;
+            if (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+            if (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+            p.angle += angleDiff * interpolationFactor;
+        }
+    });
+    bots.forEach(b => {
+        if (b.targetX !== undefined) {
+            b.x += (b.targetX - b.x) * interpolationFactor;
+            b.y += (b.targetY - b.y) * interpolationFactor;
+            let angleDiff = b.targetAngle - b.angle;
+            if (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+            if (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+            b.angle += angleDiff * interpolationFactor;
+        }
+    });
 
     // Update camera
     updateCamera();
@@ -438,9 +506,10 @@ function drawCollectible(c) {
 }
 
 function drawShip(ship, isLocal) {
-    const size = shipSizes[ship.shipLevel] || 120;
-    const aspectRatio = 1;
-    const width = ship.shipLevel === 1 ? size : size * aspectRatio;
+    // Ensure shipLevel is valid, default to 1 if not
+    const shipLevel = ship.shipLevel && shipSizes[ship.shipLevel] ? ship.shipLevel : 1;
+    const size = shipSizes[shipLevel];
+    const width = size;
     const height = size;
 
     ctx.save();
@@ -448,7 +517,7 @@ function drawShip(ship, isLocal) {
     ctx.rotate(ship.angle);
 
     // Draw ship image
-    const img = images[`assets/ship${ship.shipLevel}.png`];
+    const img = images[`assets/ship${shipLevel}.png`];
     if (img) {
         ctx.drawImage(img, -width / 2, -height / 2, width, height);
     }
