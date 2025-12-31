@@ -172,10 +172,9 @@ function startGame(playerName) {
     document.getElementById('gameCanvas').style.display = 'block';
     document.getElementById('hud').style.display = 'block';
     document.getElementById('leaderboard').style.display = 'block';
-    document.getElementById('upgrade-ui').style.display = 'block';
 
     // Connect to server
-    socket = io();
+    socket = io(serverUrl);
 
     socket.on('connect', () => {
         console.log('[CLIENT] Connected to server!');
@@ -447,29 +446,6 @@ function updateUI() {
             document.getElementById('upgrade-progress-text').textContent = "UPGRADING...";
         } else {
             document.getElementById('upgrade-progress-text').style.color = "#FFD700";
-        }
-    }
-
-    // Hide upgrade UI if max level
-    if (localPlayer.shipLevel >= 7) {
-        document.getElementById('upgrade-ui').style.display = 'none';
-    } else {
-        document.getElementById('upgrade-ui').style.display = 'block';
-
-        const upgradeCost = 10 + localPlayer.shipLevel * 5;
-        document.getElementById('upgrade-cost').textContent = upgradeCost + ' Wood';
-
-        const woodNeeded = Math.max(0, upgradeCost - (localPlayer.wood || 0));
-        const woodProgress = Math.min(100, ((localPlayer.wood || 0) / upgradeCost) * 100);
-
-        document.getElementById('upgrade-progress').style.width = `${woodProgress}%`;
-
-        if (woodNeeded <= 0) {
-            document.getElementById('upgrade-progress-text').textContent = "READY TO UPGRADE!";
-            document.getElementById('upgrade-progress-text').style.color = "#00ff00";
-        } else {
-            document.getElementById('upgrade-progress-text').textContent = `${woodNeeded} more wood needed`;
-            document.getElementById('upgrade-progress-text').style.color = "white";
         }
     }
 

@@ -42,45 +42,41 @@ Your code is now on GitHub! 🎉
 
 ## 🌐 Deploy to Render (Recommended - Free Tier Available)
 
-Render is perfect for hosting Node.js games with WebSocket support.
+Render is perfect for hosting static websites like Blacksail.io.
 
 ### Step 1: Sign Up
 
 1. Go to [Render.com](https://render.com)
 2. Sign up with your GitHub account
 
-### Step 2: Create New Web Service
+### Step 2: Create New Static Site
 
-1. Click "New +" → "Web Service"
-2. Connect your GitHub repository: `NeurobladeFX/Blacksail`
-3. Click "Connect"
+1.  From the dashboard, click **New +** → **Static Site**.
+2.  Connect your GitHub repository (e.g., `YourUsername/Blacksail`).
+3.  Click "Connect".
 
 ### Step 3: Configure Service
 
 Use these settings:
 
 | Setting | Value |
-|---------|-------|
+|---|---|
 | **Name** | `blacksail-io` (or any name you like) |
-| **Environment** | `Node` |
-| **Region** | Choose  closest to you |
 | **Branch** | `main` |
 | **Build Command** | `npm install` |
-| **Start Command** | `npm start` |
-| **Instance Type** | `Free` (or paid for better performance) |
+| **Publish Directory** | `.` (Since `index.html` is in the root) |
 
 ### Step 4: Deploy
 
-1. Click "Create Web Service"
-2. Wait 2-3 minutes for deployment
-3. Your game will be live at: `https://blacksail-io.onrender.com`
+1. Click **Create Static Site**.
+2. Wait a minute for the deployment.
+3. Your game will be live at the URL Render provides (e.g., `https://blacksail-io.onrender.com`).
 
 ### Important Notes for Render:
 
-- ⚠️ **Free tier sleeps after 15 minutes of inactivity**
-- ⚠️ **First load after sleep takes ~30 seconds**
-- ✅ **Paid tier ($7/month) keeps server always on**
-- ✅ **WebSocket support is included**
+- ✅ **Static sites on Render are FREE.**
+- ✅ **They come with a global CDN for fast loading.**
+- ✅ **Automatic updates on every `git push`.
 
 ---
 

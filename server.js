@@ -419,6 +419,8 @@ function gameLoop() {
         }
     }
 
+
+
     // Ship vs Collectibles
     for (let i = gameState.collectibles.length - 1; i >= 0; i--) {
         const collectible = gameState.collectibles[i];
@@ -626,6 +628,20 @@ initializeWorld();
 // Start game loop
 const tickInterval = 1000 / TICK_RATE;
 setInterval(gameLoop, tickInterval);
+
+// Send game state to all clients
+const networkInterval = 1000 / NETWORK_UPDATE_RATE;
+setInterval(() => {
+    const playersArray = Array.from(gameState.players.values());
+    const botsArray = Array.from(gameState.bots.values());
+
+    io.emit('gameState', {
+        players: playersArray,
+        bots: botsArray,
+        cannonballs: gameState.cannonballs,
+        collectibles: gameState.collectibles
+    });
+}, networkInterval);
 
 http.listen(PORT, () => {
     console.log('='.repeat(60));

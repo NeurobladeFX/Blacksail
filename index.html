@@ -137,8 +137,22 @@ per
             console.log("Page loaded, waiting for game initialization...");
         });
     </script>
-    <script src="/socket.io/socket.io.js"></script>
-    <script src="script.js" defer></script>
+    <script>
+        // Dynamically load socket.io from the correct server address
+        const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const serverUrl = isLocal ? 'http://localhost:3000' : 'https://blacksail.onrender.com';
+        
+        const socketIoScript = document.createElement('script');
+        socketIoScript.src = serverUrl + '/socket.io/socket.io.js';
+        socketIoScript.onload = () => {
+            // The script.js file depends on socket.io, so we load it after
+            const gameScript = document.createElement('script');
+            gameScript.src = 'script.js';
+            document.body.appendChild(gameScript);
+        };
+        document.body.appendChild(socketIoScript);
+    </script>
+
 </body>
 
 </html>
